@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+{{baseCSS}}
+.stage-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.stage { padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid #e2e8f0; }
+.stage.done { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.stage.active { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+.stage.pending { background: #f1f5f9; color: #94a3b8; }
+.rug-spec { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin: 12px 0; }
+.spec-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.spec-field label { font-size: 10px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
+.spec-field span { font-size: 13px; font-weight: 600; color: #0f172a; }
+.color-swatch { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #fef9c3; color: #713f12; margin: 2px; }
+.sign-row { display: flex; gap: 24px; margin-top: 24px; }
+.sign-box { flex: 1; border-top: 1px solid #1e293b; padding-top: 8px; }
+.sign-label { font-size: 10px; color: #64748b; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="brand">
+      <div class="brand-name">Stitch't</div>
+      <div class="brand-sub">Production Job Card</div>
+      <div class="brand-contact">{{company.address}} · {{company.phone}}</div>
+    </div>
+    <div class="doc-meta">
+      <div class="doc-type">Job Card</div>
+      <div class="doc-number">{{jobNumber}}</div>
+      <div class="doc-dates">
+        Order: <strong>{{orderNumber}}</strong><br>
+        Customer: <strong>{{customer.displayName}}</strong><br>
+        Priority: {{{statusBadge priority}}}<br>
+        {{#if promisedDate}}Promised: <strong>{{formatDate promisedDate}}</strong>{{/if}}
+      </div>
+    </div>
+  </div>
+
+  {{#each items}}
+  <div class="rug-spec">
+    <div class="section-title">Rug #{{lineNo}} — {{rugName}}</div>
+    <div class="spec-grid">
+      <div class="spec-field"><label>Width</label><span>{{widthCm}} cm</span></div>
+      <div class="spec-field"><label>Height</label><span>{{heightCm}} cm</span></div>
+      <div class="spec-field"><label>Shape</label><span>{{shape}}</span></div>
+      <div class="spec-field"><label>Complexity</label><span>{{complexity}}</span></div>
+    </div>
+    {{#if colors}}
+    <div style="margin-top:8px;"><label style="font-size:10px;text-transform:uppercase;color:#94a3b8;">Colours</label><br>
+      {{#each colors}}<span class="color-swatch">{{this}}</span>{{/each}}
+    </div>
+    {{/if}}
+    {{#if notes}}<div style="margin-top:8px;font-size:11px;color:#475569;"><strong>Notes:</strong> {{notes}}</div>{{/if}}
+  </div>
+  {{/each}}
+
+  <div class="section-title">Production Stages</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">#</th>
+        <th>Stage</th>
+        <th style="width:80px;">Assigned To</th>
+        <th style="width:90px;">Started</th>
+        <th style="width:90px;">Completed</th>
+        <th style="width:70px;" class="right">Time (min)</th>
+        <th style="width:80px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each stages}}
+      <tr>
+        <td>{{stageDef.sequence}}</td>
+        <td><strong>{{stageDef.name}}</strong>{{#if isQualityGate}} <span style="color:#f59e0b;font-size:10px;">✓ QC Gate</span>{{/if}}</td>
+        <td class="muted">{{#if assignedTo}}{{assignedTo.firstName}} {{assignedTo.lastName}}{{else}}—{{/if}}</td>
+        <td class="muted">{{formatDate startedAt}}</td>
+        <td class="muted">{{formatDate endedAt}}</td>
+        <td class="right">{{#if timeSpentMinutes}}{{timeSpentMinutes}}{{else}}—{{/if}}</td>
+        <td>{{{statusBadge status}}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  {{#if notes}}<div class="notes-box" style="margin-top:12px;"><div class="notes-label">Production Notes</div><div class="notes-text">{{notes}}</div></div>{{/if}}
+
+  <div class="sign-row">
+    <div class="sign-box"><div class="sign-label">Production Manager</div></div>
+    <div class="sign-box"><div class="sign-label">Quality Check</div></div>
+    <div class="sign-box"><div class="sign-label">Customer / Delivery</div></div>
+  </div>
+
+  <div class="page-footer">
+    <span>Job {{jobNumber}} · Order {{orderNumber}}</span>
+    <span>{{company.name}}</span>
+    <span>Printed {{formatDate generatedAt}}</span>
+  </div>
+</div>
+</body>
+</html>

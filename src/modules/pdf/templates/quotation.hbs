@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+{{baseCSS}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="watermark">{{#if isDraft}}DRAFT{{/if}}</div>
+
+  <div class="header">
+    <div class="brand">
+      {{#if company.logoUrl}}<img src="{{company.logoUrl}}" style="height:48px;margin-bottom:6px;" alt="logo">{{/if}}
+      <div class="brand-name">Stitch't</div>
+      <div class="brand-sub">Custom Tufted Rugs</div>
+      <div class="brand-contact">{{company.address}} · {{company.city}}, {{company.country}}<br>{{company.phone}} · {{company.email}}</div>
+    </div>
+    <div class="doc-meta">
+      <div class="doc-type">Quotation</div>
+      <div class="doc-number">{{quotationNumber}}</div>
+      <div class="doc-dates">
+        Issue Date: <strong>{{formatDate issueDate}}</strong><br>
+        {{#if expiryDate}}Expires: <strong>{{formatDate expiryDate}}</strong>{{/if}}<br>
+        Status: {{{statusBadge status}}}
+      </div>
+      {{#if qrDataUri}}<div style="margin-top:8px;">{{> qr}}</div>{{/if}}
+    </div>
+  </div>
+
+  <div class="parties">
+    <div class="party">
+      <div class="party-label">Prepared By</div>
+      <div class="party-name">{{company.name}}</div>
+      <div class="party-detail">{{company.taxId}}</div>
+    </div>
+    <div class="party">
+      <div class="party-label">Prepared For</div>
+      <div class="party-name">{{customer.displayName}}</div>
+      <div class="party-detail">
+        {{customer.email}}<br>
+        {{customer.phone}}<br>
+        {{customer.address}}
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:36px;">#</th>
+        <th>Description</th>
+        <th style="width:90px;">Dimensions</th>
+        <th style="width:60px;" class="right">Qty</th>
+        <th style="width:90px;" class="right">Unit Price</th>
+        <th style="width:90px;" class="right">Discount</th>
+        <th style="width:90px;" class="right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each items}}
+      <tr>
+        <td>{{lineNo lineNo}}</td>
+        <td>
+          <strong>{{description}}</strong>
+          {{#if rugSpec}}
+          <div class="spec-chips">
+            {{#if rugSpec.rugName}}<span class="spec-chip">{{rugSpec.rugName}}</span>{{/if}}
+            {{#if rugSpec.shape}}<span class="spec-chip">{{rugSpec.shape}}</span>{{/if}}
+            {{#if rugSpec.complexity}}<span class="spec-chip">{{rugSpec.complexity}}</span>{{/if}}
+            {{#each rugSpec.colors}}<span class="spec-chip" style="background:#fef9c3;color:#713f12;">{{this}}</span>{{/each}}
+          </div>
+          {{/if}}
+        </td>
+        <td class="right muted">
+          {{#if rugSpec}}{{rugSpec.widthCm}}×{{rugSpec.heightCm}} {{rugSpec.unit}}{{/if}}
+        </td>
+        <td class="right">{{formatMoney quantity}}</td>
+        <td class="right">{{../currencyCode}} {{formatMoney unitPrice}}</td>
+        <td class="right muted">{{#if discount}}{{../currencyCode}} {{formatMoney discount}}{{else}}—{{/if}}</td>
+        <td class="right"><strong>{{../currencyCode}} {{formatMoney lineTotal}}</strong></td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div style="display:flex;justify-content:flex-end;">
+    <div class="totals">
+      <table>
+        <tr><td class="label">Subtotal</td><td class="right">{{currencyCode}} {{formatMoney subtotal}}</td></tr>
+        {{#if discountTotal}}<tr><td class="label">Discount</td><td class="right">− {{currencyCode}} {{formatMoney discountTotal}}</td></tr>{{/if}}
+        {{#if taxTotal}}<tr><td class="label">Tax</td><td class="right">{{currencyCode}} {{formatMoney taxTotal}}</td></tr>{{/if}}
+        <tr class="total-row"><td>TOTAL DUE</td><td class="right">{{currencyCode}} {{formatMoney total}}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-row">
+    {{#if notes}}
+    <div class="notes-box">
+      <div class="notes-label">Notes</div>
+      <div class="notes-text">{{notes}}</div>
+    </div>
+    {{/if}}
+    {{#if terms}}
+    <div class="notes-box" style="border-color:#10b981;">
+      <div class="notes-label">Terms &amp; Conditions</div>
+      <div class="notes-text">{{terms}}</div>
+    </div>
+    {{/if}}
+    {{#if qrDataUri}}
+    <div class="qr-box">
+      <img src="{{qrDataUri}}" alt="Verify">
+      <div class="qr-label">Scan to verify</div>
+    </div>
+    {{/if}}
+  </div>
+
+  <div class="page-footer">
+    <span>{{company.name}} · {{company.email}}</span>
+    <span>This quotation is valid until {{formatDate expiryDate}}</span>
+    <span>Generated {{formatDate generatedAt}}</span>
+  </div>
+</div>
+</body>
+</html>

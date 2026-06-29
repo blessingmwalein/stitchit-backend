@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>{{baseCSS}}</style>
+</head>
+<body>
+<div class="page">
+  {{#if isCreditNote}}<div class="watermark">CREDIT NOTE</div>{{/if}}
+
+  <div class="header">
+    <div class="brand">
+      <div class="brand-name">Stitch't</div>
+      <div class="brand-sub">Custom Tufted Rugs</div>
+      <div class="brand-contact">{{company.address}} · {{company.city}}, {{company.country}}<br>{{company.phone}} · {{company.email}}</div>
+    </div>
+    <div class="doc-meta">
+      <div class="doc-type">{{#if isCreditNote}}Credit Note{{else}}Invoice{{/if}}</div>
+      <div class="doc-number">{{invoiceNumber}}</div>
+      <div class="doc-dates">
+        Date: <strong>{{formatDate issueDate}}</strong><br>
+        {{#if dueDate}}Due: <strong>{{formatDate dueDate}}</strong><br>{{/if}}
+        Status: {{{statusBadge status}}}
+      </div>
+      {{#if orderNumber}}<div style="margin-top:6px;font-size:11px;color:#64748b;">Order: <strong>{{orderNumber}}</strong></div>{{/if}}
+    </div>
+  </div>
+
+  <div class="parties">
+    <div class="party">
+      <div class="party-label">From</div>
+      <div class="party-name">{{company.name}}</div>
+      <div class="party-detail">{{company.taxId}}</div>
+    </div>
+    <div class="party">
+      <div class="party-label">Bill To</div>
+      <div class="party-name">{{customer.displayName}}</div>
+      <div class="party-detail">{{customer.email}}<br>{{customer.phone}}<br>{{customer.address}}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:36px;">#</th>
+        <th>Description</th>
+        <th style="width:60px;" class="right">Qty</th>
+        <th style="width:90px;" class="right">Unit Price</th>
+        <th style="width:90px;" class="right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each items}}
+      <tr>
+        <td>{{lineNo lineNo}}</td>
+        <td><strong>{{description}}</strong></td>
+        <td class="right">{{formatMoney quantity}}</td>
+        <td class="right">{{../currencyCode}} {{formatMoney unitPrice}}</td>
+        <td class="right"><strong>{{../currencyCode}} {{formatMoney lineTotal}}</strong></td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div style="display:flex;justify-content:flex-end;">
+    <div class="totals">
+      <table>
+        <tr><td class="label">Subtotal</td><td class="right">{{currencyCode}} {{formatMoney subtotal}}</td></tr>
+        {{#if discountTotal}}<tr><td class="label">Discount</td><td class="right">− {{currencyCode}} {{formatMoney discountTotal}}</td></tr>{{/if}}
+        {{#if taxTotal}}<tr><td class="label">Tax ({{taxRate}}%)</td><td class="right">{{currencyCode}} {{formatMoney taxTotal}}</td></tr>{{/if}}
+        <tr class="total-row"><td>TOTAL</td><td class="right">{{currencyCode}} {{formatMoney total}}</td></tr>
+        {{#if amountPaid}}<tr><td class="label">Paid</td><td class="right" style="color:#22c55e;">− {{currencyCode}} {{formatMoney amountPaid}}</td></tr>{{/if}}
+        {{#if balance}}<tr><td style="font-weight:700;">Balance Due</td><td class="right" style="color:#ef4444;font-weight:700;">{{currencyCode}} {{formatMoney balance}}</td></tr>{{/if}}
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-row">
+    <div class="notes-box" style="border-color:#10b981;">
+      <div class="notes-label">Payment Instructions</div>
+      <div class="notes-text">{{paymentInstructions}}</div>
+    </div>
+    {{#if qrDataUri}}
+    <div class="qr-box">
+      <img src="{{qrDataUri}}" alt="Verify">
+      <div class="qr-label">Scan to verify</div>
+    </div>
+    {{/if}}
+  </div>
+
+  {{#if notes}}<div class="notes-box" style="margin-top:12px;"><div class="notes-label">Notes</div><div class="notes-text">{{notes}}</div></div>{{/if}}
+
+  <div class="page-footer">
+    <span>{{company.name}}</span>
+    <span>Thank you for your business!</span>
+    <span>Generated {{formatDate generatedAt}}</span>
+  </div>
+</div>
+</body>
+</html>

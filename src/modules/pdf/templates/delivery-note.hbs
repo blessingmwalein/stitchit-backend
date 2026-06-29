@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>{{baseCSS}}</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="brand">
+      <div class="brand-name">Stitch't</div>
+      <div class="brand-sub">Delivery Note</div>
+      <div class="brand-contact">{{company.address}} · {{company.phone}}</div>
+    </div>
+    <div class="doc-meta">
+      <div class="doc-type">Delivery Note</div>
+      <div class="doc-number">{{docNumber}}</div>
+      <div class="doc-dates">
+        Date: <strong>{{formatDate deliveryDate}}</strong><br>
+        Order: <strong>{{orderNumber}}</strong>
+      </div>
+      {{#if qrDataUri}}<div style="margin-top:8px;"><img src="{{qrDataUri}}" style="width:64px;height:64px;"></div>{{/if}}
+    </div>
+  </div>
+
+  <div class="parties">
+    <div class="party">
+      <div class="party-label">Delivered By</div>
+      <div class="party-name">{{company.name}}</div>
+      <div class="party-detail">{{company.phone}}</div>
+    </div>
+    <div class="party">
+      <div class="party-label">Delivered To</div>
+      <div class="party-name">{{customer.displayName}}</div>
+      <div class="party-detail">{{customer.phone}}<br>{{deliveryAddress}}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:36px;">#</th>
+        <th>Item</th>
+        <th style="width:100px;">Dimensions</th>
+        <th style="width:60px;" class="right">Qty</th>
+        <th style="width:80px;">Condition</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each items}}
+      <tr>
+        <td>{{lineNo lineNo}}</td>
+        <td><strong>{{rugName}}</strong>{{#if notes}}<br><span class="muted">{{notes}}</span>{{/if}}</td>
+        <td class="muted">{{widthCm}} × {{heightCm}} cm</td>
+        <td class="right">{{quantity}}</td>
+        <td></td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  {{#if notes}}<div class="notes-box" style="margin-top:12px;"><div class="notes-label">Notes</div><div class="notes-text">{{notes}}</div></div>{{/if}}
+
+  <div style="display:flex;gap:40px;margin-top:32px;">
+    <div style="flex:1;border-top:1px solid #1e293b;padding-top:8px;"><span style="font-size:10px;color:#64748b;">Received by (Name &amp; Signature)</span></div>
+    <div style="width:120px;border-top:1px solid #1e293b;padding-top:8px;"><span style="font-size:10px;color:#64748b;">Date Received</span></div>
+  </div>
+
+  <div class="page-footer">
+    <span>{{company.name}} · {{company.email}}</span>
+    <span>Please inspect all items upon receipt</span>
+    <span>Generated {{formatDate generatedAt}}</span>
+  </div>
+</div>
+</body>
+</html>

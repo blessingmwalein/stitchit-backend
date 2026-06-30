@@ -13,8 +13,27 @@ export class ExpensesService {
     private readonly numbering: NumberingService,
   ) {}
 
-  async findAll(companyId: string, page = 1, limit = 20) {
-    const where = { companyId };
+  async findAll(
+    companyId: string,
+    page = 1,
+    limit = 20,
+    excludeCategory?: string,
+    fromDate?: string,
+    toDate?: string,
+    category?: string,
+  ) {
+    const where: any = { companyId };
+    if (excludeCategory) {
+      where.category = { not: excludeCategory };
+    }
+    if (category) {
+      where.category = category;
+    }
+    if (fromDate || toDate) {
+      where.date = {};
+      if (fromDate) where.date.gte = new Date(fromDate);
+      if (toDate)   where.date.lte = new Date(toDate);
+    }
     const [data, total] = await Promise.all([
       this.prisma.expenseEntry.findMany({
         where,

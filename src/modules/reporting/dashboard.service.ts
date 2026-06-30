@@ -2,62 +2,74 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import Decimal from 'decimal.js';
 
+function monthStart(y: number, m: number) {
+  return new Date(y, m, 1);
+}
+function monthEnd(y: number, m: number) {
+  return new Date(y, m + 1, 0, 23, 59, 59, 999);
+}
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async kpis(companyId: string) {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const yr  = now.getFullYear();
+    const mo  = now.getMonth(); // 0-based
+    const startOfMonth = monthStart(yr, mo);
+    const endOfMonth   = monthEnd(yr, mo);
+
+    // Build last-6-months date array (oldest first)
+    const months: { label: string; start: Date; end: Date }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      let m = mo - i;
+      let y = yr;
+      if (m < 0) { m += 12; y -= 1; }
+      months.push({
+        label: monthStart(y, m).toLocaleString('en-US', { month: 'short', year: '2-digit' }),
+        start: monthStart(y, m),
+        end:   monthEnd(y, m),
+      });
+    }
 
     const [
-      revenueMonth,
-      revenueYear,
-      arBalance,
-      apBalance,
-      cashBalance,
+      monthlyPayments,
+      allTimePayments,
+      outstandingOrders,
+      monthlyExpenses,
+      cashJournal,
       ordersInProduction,
       ordersThisMonth,
       jobsOverdue,
       lowStockCount,
-      openInvoiceCount,
     ] = await Promise.all([
-      // Revenue this month (posted sales revenue credit lines)
-      this.prisma.journalLine.aggregate({
-        where: {
-          journalEntry: { companyId, status: 'POSTED', entryDate: { gte: startOfMonth } },
-          account: { subtype: 'SALES_REVENUE' },
-        },
-        _sum: { credit: true },
+
+      // Income this month — actual cash received from customers (deposits + balances)
+      this.prisma.payment.aggregate({
+        where: { companyId, paymentDate: { gte: startOfMonth, lte: endOfMonth } },
+        _sum: { amount: true },
       }),
 
-      // Revenue this year
-      this.prisma.journalLine.aggregate({
-        where: {
-          journalEntry: { companyId, status: 'POSTED', entryDate: { gte: startOfYear } },
-          account: { subtype: 'SALES_REVENUE' },
-        },
-        _sum: { credit: true },
+      // Capital — total money ever received from customers
+      this.prisma.payment.aggregate({
+        where: { companyId },
+        _sum: { amount: true },
       }),
 
-      // Outstanding AR (sum of invoice balances)
-      this.prisma.invoice.aggregate({
-        where: {
-          companyId,
-          status: { in: ['POSTED', 'PARTIALLY_PAID', 'OVERDUE'] },
-          deletedAt: null,
-        },
+      // Total outstanding balance on all active orders
+      this.prisma.order.aggregate({
+        where: { companyId, deletedAt: null, balance: { gt: 0 } },
         _sum: { balance: true },
       }),
 
-      // Outstanding AP (sum of supplier invoice balances)
-      this.prisma.supplierInvoice.aggregate({
-        where: { companyId, status: { in: ['POSTED', 'PARTIALLY_PAID'] } },
-        _sum: { balance: true },
+      // Monthly expenses — sum of expense entries this month
+      this.prisma.expenseEntry.aggregate({
+        where: { companyId, date: { gte: startOfMonth, lte: endOfMonth } },
+        _sum: { amount: true },
       }),
 
-      // Cash position (CASH + BANK + MOBILE_WALLET accounts net balance)
+      // Cash balance from GL (CASH + BANK + MOBILE_WALLET net)
       this.prisma.journalLine.aggregate({
         where: {
           journalEntry: { companyId, status: 'POSTED' },
@@ -67,67 +79,75 @@ export class DashboardService {
       }),
 
       // Orders in production
-      this.prisma.order.count({ where: { companyId, status: 'IN_PRODUCTION' } }),
+      this.prisma.order.count({ where: { companyId, status: 'IN_PRODUCTION', deletedAt: null } }),
 
       // New orders this month
-      this.prisma.order.count({
-        where: { companyId, createdAt: { gte: startOfMonth }, deletedAt: null },
-      }),
+      this.prisma.order.count({ where: { companyId, createdAt: { gte: startOfMonth }, deletedAt: null } }),
 
-      // Jobs overdue (IN_PROGRESS past scheduledEnd)
+      // Jobs overdue
       this.prisma.productionJob.count({
-        where: {
-          companyId,
-          status: { in: ['IN_PROGRESS', 'PENDING'] },
-          scheduledEnd: { lt: now },
-        },
+        where: { companyId, status: { in: ['IN_PROGRESS', 'PENDING'] }, scheduledEnd: { lt: now } },
       }),
 
-      // Materials below reorder level
+      // Low stock materials
       this.prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*) as count
-        FROM "Material" m
+        SELECT COUNT(*) as count FROM "Material" m
         JOIN "StockLevel" sl ON sl."materialId" = m.id
-        WHERE m."companyId" = ${companyId}
-          AND m."reorderLevel" IS NOT NULL
-          AND m."deletedAt" IS NULL
-        GROUP BY m.id
-        HAVING SUM(sl."qtyOnHand") < m."reorderLevel"
-      `.then((rows) => Number(rows.length)),
-
-      // Open (unpaid) invoices
-      this.prisma.invoice.count({
-        where: {
-          companyId,
-          status: { in: ['POSTED', 'PARTIALLY_PAID', 'OVERDUE'] },
-          deletedAt: null,
-        },
-      }),
+        WHERE m."companyId" = ${companyId} AND m."reorderLevel" IS NOT NULL AND m."deletedAt" IS NULL
+        GROUP BY m.id HAVING SUM(sl."qtyOnHand") < m."reorderLevel"
+      `.then((r) => Number(r.length)),
     ]);
 
-    const cashNet = new Decimal(cashBalance._sum.debit?.toString() ?? '0')
-      .minus(new Decimal(cashBalance._sum.credit?.toString() ?? '0'));
+    // Orders by status for pipeline view
+    const ordersByStatusRaw = await this.prisma.order.groupBy({
+      by: ['status'],
+      where: { companyId, deletedAt: null },
+      _count: { _all: true },
+    });
+
+    // 6-month income + expense chart
+    const chartData = await Promise.all(
+      months.map(async ({ label, start, end }) => {
+        const [inc, exp] = await Promise.all([
+          this.prisma.payment.aggregate({
+            where: { companyId, paymentDate: { gte: start, lte: end } },
+            _sum: { amount: true },
+          }),
+          this.prisma.expenseEntry.aggregate({
+            where: { companyId, date: { gte: start, lte: end } },
+            _sum: { amount: true },
+          }),
+        ]);
+        return {
+          month:    label,
+          income:   Number(new Decimal(inc._sum.amount?.toString() ?? '0').toFixed(2)),
+          expenses: Number(new Decimal(exp._sum.amount?.toString()  ?? '0').toFixed(2)),
+        };
+      }),
+    );
+
+    const cashNet = new Decimal(cashJournal._sum.debit?.toString()  ?? '0')
+      .minus(new Decimal(cashJournal._sum.credit?.toString() ?? '0'));
 
     return {
-      revenue: {
-        thisMonth: new Decimal(revenueMonth._sum.credit?.toString() ?? '0').toFixed(2),
-        thisYear: new Decimal(revenueYear._sum.credit?.toString() ?? '0').toFixed(2),
-      },
-      receivables: {
-        outstanding: new Decimal(arBalance._sum.balance?.toString() ?? '0').toFixed(2),
-        openInvoices: openInvoiceCount,
-      },
-      payables: {
-        outstanding: new Decimal(apBalance._sum.balance?.toString() ?? '0').toFixed(2),
-      },
-      cashPosition: cashNet.toFixed(2),
-      production: {
-        ordersInProduction,
-        newOrdersThisMonth: ordersThisMonth,
-        jobsOverdue,
-      },
-      inventory: { lowStockMaterials: lowStockCount },
-      generatedAt: now,
+      // 5 stat cards
+      monthlyIncome:      Number(new Decimal(monthlyPayments._sum.amount?.toString() ?? '0').toFixed(2)),
+      capital:            Number(new Decimal(allTimePayments._sum.amount?.toString() ?? '0').toFixed(2)),
+      cashBalance:        Number(cashNet.toFixed(2)),
+      outstandingBalance: Number(new Decimal(outstandingOrders._sum.balance?.toString() ?? '0').toFixed(2)),
+      monthlyExpenses:    Number(new Decimal(monthlyExpenses._sum.amount?.toString() ?? '0').toFixed(2)),
+
+      // Chart
+      revenueChart: chartData,
+
+      // Operational
+      ordersInProduction,
+      newOrdersMtd: ordersThisMonth,
+      jobsOverdue,
+      lowStockCount,
+
+      // Pipeline
+      ordersByStatus: ordersByStatusRaw.map((r) => ({ status: r.status, count: r._count._all })),
     };
   }
 
@@ -135,17 +155,13 @@ export class DashboardService {
     const [recentOrders, recentPayments, recentJobs] = await Promise.all([
       this.prisma.order.findMany({
         where: { companyId, deletedAt: null },
-        include: {
-          customer: { select: { firstName: true, lastName: true, companyName: true } },
-        },
+        include: { customer: { select: { firstName: true, lastName: true, companyName: true } } },
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
       this.prisma.payment.findMany({
         where: { companyId },
-        include: {
-          customer: { select: { firstName: true, lastName: true, companyName: true } },
-        },
+        include: { customer: { select: { firstName: true, lastName: true, companyName: true } } },
         orderBy: { paymentDate: 'desc' },
         take: 5,
       }),

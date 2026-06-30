@@ -121,8 +121,15 @@ export class InvoicingController {
   listExpenses(
     @CurrentUser() u: AuthUser,
     @Query() pagination: PaginationDto,
+    @Query('excludeCategory') excludeCategory?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+    @Query('category') category?: string,
   ) {
-    return this.expenses.findAll(u.companyId, pagination.page, pagination.pageSize);
+    return this.expenses.findAll(
+      u.companyId, pagination.page, pagination.pageSize,
+      excludeCategory, fromDate, toDate, category,
+    );
   }
 
   @Get('expenses/:id')

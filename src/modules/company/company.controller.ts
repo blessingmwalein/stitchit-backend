@@ -18,7 +18,7 @@ export class CompanyController {
   @RequirePermissions('settings.update')
   @Audited('settings.company_update', 'Company')
   updateCompany(@CurrentUser() user: AuthUser, @Body() body: Record<string, unknown>) {
-    const allowed = ['name', 'legalName', 'taxId', 'address', 'city', 'country', 'phone', 'whatsapp', 'email', 'website', 'logoFileId'];
+    const allowed = ['name', 'legalName', 'taxId', 'address', 'city', 'country', 'phone', 'whatsapp', 'email', 'website', 'logoFileId', 'settings'];
     const data = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
     return this.company.update(user.companyId, data);
   }

@@ -72,6 +72,7 @@ export class AllocateDto {
 
 export class PaymentFilterDto {
   @IsOptional() @IsUUID() customerId?: string;
+  @IsOptional() @IsUUID() orderId?: string;
   @IsOptional() @IsEnum(PaymentMethod) method?: PaymentMethod;
   @IsOptional() @IsBoolean() @Type(() => Boolean) isDeposit?: boolean;
   @IsOptional() @IsString() fromDate?: string;

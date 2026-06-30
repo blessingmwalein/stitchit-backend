@@ -91,28 +91,77 @@ export class CustomersService {
       this.prisma.customer.count({ where }),
     ]);
 
-    return paginate(data, total, pagination);
+    // Compute totalSpend and outstandingBalance from actual payments and orders
+    const ids = data.map((c) => c.id);
+    const [paymentSums, orderSums] = await Promise.all([
+      this.prisma.payment.groupBy({
+        by: ['customerId'],
+        where: { customerId: { in: ids }, companyId },
+        _sum: { amount: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['customerId'],
+        where: { customerId: { in: ids }, companyId, deletedAt: null },
+        _sum: { total: true },
+      }),
+    ]);
+
+    const payMap = new Map(paymentSums.map((r) => [r.customerId, Number(r._sum.amount ?? 0)]));
+    const ordMap = new Map(orderSums.map((r) => [r.customerId as string, Number(r._sum.total ?? 0)]));
+
+    const enriched = data.map((c) => {
+      const totalSpend       = payMap.get(c.id) ?? 0;
+      const totalOrdered     = ordMap.get(c.id) ?? 0;
+      const outstandingBalance = Math.max(0, totalOrdered - totalSpend);
+      return { ...c, totalSpend, outstandingBalance, ordersCount: c._count.orders };
+    });
+
+    return paginate(enriched, total, pagination);
   }
 
   async findOne(companyId: string, id: string) {
-    const customer = await this.prisma.customer.findFirst({
-      where: { id, companyId, deletedAt: null },
-      include: {
-        leads: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 5 },
-        orders: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 10,
-          select: { id: true, orderNumber: true, status: true, total: true, createdAt: true } },
-        quotations: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 5,
-          select: { id: true, quotationNumber: true, status: true, total: true, createdAt: true } },
-        communications: { orderBy: { createdAt: 'desc' }, take: 10 },
-        followUps: { where: { status: 'PENDING' }, orderBy: { dueAt: 'asc' }, take: 5 },
-        _count: { select: { orders: true, invoices: true, payments: true } },
-      },
-    });
+    const [customer, paymentAgg, orderAgg] = await Promise.all([
+      this.prisma.customer.findFirst({
+        where: { id, companyId, deletedAt: null },
+        include: {
+          leads: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 5 },
+          orders: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            select: {
+              id: true, orderNumber: true, status: true,
+              total: true, amountPaid: true, balance: true,
+              createdAt: true, promisedDate: true,
+            },
+          },
+          quotations: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 5,
+            select: { id: true, quotationNumber: true, status: true, total: true, createdAt: true } },
+          communications: { orderBy: { createdAt: 'desc' }, take: 10 },
+          followUps: { where: { status: 'PENDING' }, orderBy: { dueAt: 'asc' }, take: 5 },
+          _count: { select: { orders: true, invoices: true, payments: true } },
+        },
+      }),
+      // Total money actually received from this customer
+      this.prisma.payment.aggregate({
+        where: { customerId: id, companyId },
+        _sum: { amount: true },
+      }),
+      // Total value of all orders
+      this.prisma.order.aggregate({
+        where: { customerId: id, companyId, deletedAt: null },
+        _sum: { total: true },
+      }),
+    ]);
+
     if (!customer) throw new NotFoundException('Customer not found');
 
-    // never expose passwordHash
+    const totalSpend       = Number(paymentAgg._sum.amount ?? 0);
+    const totalOrdered     = Number(orderAgg._sum.total   ?? 0);
+    const outstandingBalance = Math.max(0, totalOrdered - totalSpend);
+
     const { passwordHash: _, ...safe } = customer as any;
-    return safe;
+    return { ...safe, totalSpend, outstandingBalance };
   }
 
   async update(companyId: string, id: string, dto: UpdateCustomerDto, userId?: string) {

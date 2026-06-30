@@ -15,9 +15,10 @@ export class PaymentsService {
   ) {}
 
   async findAll(companyId: string, filter: PaymentFilterDto) {
-    const { customerId, method, isDeposit, fromDate, toDate, page = 1, limit = 20 } = filter;
+    const { customerId, orderId, method, isDeposit, fromDate, toDate, page = 1, limit = 20 } = filter;
     const where: any = { companyId };
     if (customerId) where.customerId = customerId;
+    if (orderId) where.orderId = orderId;
     if (method) where.method = method;
     if (isDeposit !== undefined) where.isDeposit = isDeposit;
     if (fromDate || toDate) {

@@ -119,6 +119,10 @@ export class CreateOrderDto {
   @Min(0)
   depositRequired?: number;
 
+  @IsOptional()
+  @IsDateString()
+  createdAt?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)

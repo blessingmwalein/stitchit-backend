@@ -77,6 +77,7 @@ export class OrdersService {
         deliveryAddress: dto.deliveryAddress,
         notes: dto.notes,
         createdByUserId: userId,
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
         items: {
           create: dto.items.map((item) => ({
             lineNo: item.lineNo,

@@ -5,7 +5,7 @@ export default () => ({
     apiPrefix: process.env.API_PREFIX ?? 'api/v1',
     appUrl: process.env.APP_URL ?? 'http://localhost:3001',
     adminUrl: process.env.ADMIN_URL ?? 'http://localhost:3000',
-    webUrl: process.env.WEB_URL ?? 'http://localhost:3002',
+    webUrl: process.env.WEB_URL ?? 'https://stitchit.co.zw',
     corsOrigins: [
       // Always include production domains
       'https://stitchit-admin.vercel.app',

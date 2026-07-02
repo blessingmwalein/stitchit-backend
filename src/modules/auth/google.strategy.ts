@@ -11,9 +11,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     private readonly googleOAuth: GoogleOAuthService,
   ) {
     super({
-      clientID: config.get<string>('google.clientId') ?? '',
-      clientSecret: config.get<string>('google.clientSecret') ?? '',
-      callbackURL: config.get<string>('google.callbackUrl') ??
+      // Use a placeholder when not configured — passport throws on empty string
+      // but a non-empty placeholder is safe; the route guard will fail gracefully at runtime
+      clientID: config.get<string>('google.clientId') || 'google-not-configured',
+      clientSecret: config.get<string>('google.clientSecret') || 'google-not-configured',
+      callbackURL: config.get<string>('google.callbackUrl') ||
         'http://localhost:3001/api/v1/auth/google/callback',
       scope: ['email', 'profile'],
     });

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Ip, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Ip, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
@@ -74,7 +74,14 @@ export class AuthController {
   @Post('google/exchange-session')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(200)
-  exchangeGoogleSession(@Body('session') session: string) {
+  exchangeGoogleSessionPost(@Body('session') session: string) {
+    return this.googleOAuth.exchangeSession(session);
+  }
+
+  @Public()
+  @Get('google/exchange-session')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  exchangeGoogleSessionGet(@Query('session') session: string) {
     return this.googleOAuth.exchangeSession(session);
   }
 

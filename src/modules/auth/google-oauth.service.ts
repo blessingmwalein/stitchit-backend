@@ -31,9 +31,27 @@ export class GoogleOAuthService {
     const company = await this.prisma.company.findFirst({ where: { isActive: true } });
     if (!company) throw new BadRequestException('Service unavailable');
 
-    const existing = await this.prisma.customer.findFirst({
+    // 1. Check by googleId (returning user)
+    let existing = await this.prisma.customer.findFirst({
       where: { googleId: profile.googleId, deletedAt: null },
     });
+
+    // 2. Check by email (existing email/password account — auto-link)
+    if (!existing && profile.email) {
+      existing = await this.prisma.customer.findFirst({
+        where: { email: profile.email, deletedAt: null },
+      });
+      if (existing) {
+        // Link this Google account to the existing customer record
+        existing = await this.prisma.customer.update({
+          where: { id: existing.id },
+          data: {
+            googleId: profile.googleId,
+            ...(profile.avatarUrl && !existing.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
+          },
+        });
+      }
+    }
 
     const sessionKey = randomUUID();
     const type = existing ? 'login' : 'register';

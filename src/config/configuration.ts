@@ -6,7 +6,16 @@ export default () => ({
     appUrl: process.env.APP_URL ?? 'http://localhost:3001',
     adminUrl: process.env.ADMIN_URL ?? 'http://localhost:3000',
     webUrl: process.env.WEB_URL ?? 'http://localhost:3002',
-    corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:3002').split(','),
+    corsOrigins: [
+      // Always include production domains
+      'https://stitchit-admin.vercel.app',
+      'https://stitchit.co.zw',
+      // Plus any extra origins from env (local dev, staging, etc.)
+      ...(process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:3002,http://localhost:3003')
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+    ],
   },
   redis: {
     host: process.env.REDIS_HOST ?? 'localhost',

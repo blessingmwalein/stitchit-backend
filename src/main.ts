@@ -13,9 +13,17 @@ async function bootstrap() {
   app.setGlobalPrefix(config.get<string>('app.apiPrefix') ?? 'api/v1');
   app.use(helmet());
   app.use(cookieParser());
+  const allowedOrigins = new Set(config.get<string[]>('app.corsOrigins') ?? []);
   app.enableCors({
-    origin: config.get<string[]>('app.corsOrigins'),
+    origin: (origin, cb) => {
+      // Allow requests with no origin (curl, Postman, server-to-server)
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.has(origin)) return cb(null, true);
+      cb(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-company-id'],
   });
   app.useGlobalPipes(
     new ValidationPipe({

@@ -35,7 +35,13 @@ export class PortalAuthService {
     return { ...pair, customer: safeCustomer };
   }
 
-  async register(companyId: string, dto: PortalRegisterDto, meta?: { ip?: string; userAgent?: string }) {
+  async register(companyId: string | undefined, dto: PortalRegisterDto, meta?: { ip?: string; userAgent?: string }) {
+    if (!companyId) {
+      const company = await this.prisma.company.findFirst({ where: { isActive: true } });
+      if (!company) throw new BadRequestException('Service unavailable');
+      companyId = company.id;
+    }
+
     const existing = await this.prisma.customer.findFirst({
       where: { email: dto.email, companyId },
     });

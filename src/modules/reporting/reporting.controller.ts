@@ -14,8 +14,12 @@ export class ReportingController {
 
   @Get('dashboard')
   @RequirePermissions('reports.read')
-  kpis(@CurrentUser() u: AuthUser) {
-    return this.dashboard.kpis(u.companyId);
+  kpis(
+    @CurrentUser() u: AuthUser,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    return this.dashboard.kpis(u.companyId, fromDate, toDate);
   }
 
   @Get('dashboard/activity')

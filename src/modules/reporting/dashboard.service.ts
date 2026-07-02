@@ -13,10 +13,18 @@ function monthEnd(y: number, m: number) {
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async kpis(companyId: string) {
+  async kpis(companyId: string, fromDate?: string, toDate?: string) {
     const now = new Date();
     const yr  = now.getFullYear();
     const mo  = now.getMonth(); // 0-based
+
+    // Period boundaries — defaults to current month when no filter supplied
+    const periodStart = fromDate ? new Date(fromDate) : monthStart(yr, mo);
+    const periodEnd   = toDate
+      ? new Date(toDate + 'T23:59:59.999Z')
+      : monthEnd(yr, mo);
+
+    // Keep these as current-month aliases for the 6-month chart (always full months)
     const startOfMonth = monthStart(yr, mo);
     const endOfMonth   = monthEnd(yr, mo);
 
@@ -45,9 +53,9 @@ export class DashboardService {
       lowStockCount,
     ] = await Promise.all([
 
-      // Income this month — actual cash received from customers (deposits + balances)
+      // Income for the selected period — actual cash received
       this.prisma.payment.aggregate({
-        where: { companyId, paymentDate: { gte: startOfMonth, lte: endOfMonth } },
+        where: { companyId, paymentDate: { gte: periodStart, lte: periodEnd } },
         _sum: { amount: true },
       }),
 
@@ -63,9 +71,9 @@ export class DashboardService {
         _sum: { balance: true },
       }),
 
-      // Monthly expenses — sum of expense entries this month
+      // Expenses for the selected period
       this.prisma.expenseEntry.aggregate({
-        where: { companyId, date: { gte: startOfMonth, lte: endOfMonth } },
+        where: { companyId, date: { gte: periodStart, lte: periodEnd } },
         _sum: { amount: true },
       }),
 

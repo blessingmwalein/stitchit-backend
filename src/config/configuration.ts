@@ -58,4 +58,10 @@ export default () => ({
   pdf: {
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackUrl: process.env.GOOGLE_CALLBACK_URL ??
+      `${process.env.APP_URL ?? 'http://localhost:3001'}/${process.env.API_PREFIX ?? 'api/v1'}/auth/google/callback`,
+  },
 });

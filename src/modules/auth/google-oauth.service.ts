@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TokenService } from './token.service';
 
@@ -11,21 +12,27 @@ interface GoogleProfile {
   avatarUrl?: string;
 }
 
-interface PendingSession {
-  profile: GoogleProfile;
-  type: 'login' | 'register';
-  customerId?: string;
-  expiresAt: number;
+interface GoogleSessionPayload {
+  sub: 'google-session';
+  googleId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
 }
 
 @Injectable()
 export class GoogleOAuthService {
-  private readonly sessions = new Map<string, PendingSession>();
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokens: TokenService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
   ) {}
+
+  private get sessionSecret(): string {
+    return this.config.get<string>('jwt.accessSecret') + '-google-session';
+  }
 
   async resolveGoogleProfile(profile: GoogleProfile): Promise<{ sessionKey: string }> {
     const company = await this.prisma.company.findFirst({ where: { isActive: true } });
@@ -42,7 +49,6 @@ export class GoogleOAuthService {
         where: { email: profile.email, deletedAt: null },
       });
       if (existing) {
-        // Link this Google account to the existing customer record
         existing = await this.prisma.customer.update({
           where: { id: existing.id },
           data: {
@@ -53,34 +59,39 @@ export class GoogleOAuthService {
       }
     }
 
-    const sessionKey = randomUUID();
-    const type = existing ? 'login' : 'register';
-
-    this.sessions.set(sessionKey, {
-      profile,
-      type,
-      customerId: existing?.id,
-      expiresAt: Date.now() + 5 * 60 * 1000,
-    });
-
-    setTimeout(() => this.sessions.delete(sessionKey), 5 * 60 * 1000);
+    // Encode profile into a signed JWT valid for 5 minutes
+    const sessionKey = await this.jwt.signAsync(
+      {
+        sub: 'google-session',
+        googleId: profile.googleId,
+        email: profile.email,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        avatarUrl: profile.avatarUrl,
+        // Embed whether this is a login or register
+        customerId: existing?.id ?? null,
+      } satisfies GoogleSessionPayload & { customerId: string | null },
+      { secret: this.sessionSecret, expiresIn: 300 },
+    );
 
     return { sessionKey };
   }
 
   async exchangeSession(sessionKey: string) {
-    const session = this.sessions.get(sessionKey);
-    if (!session || session.expiresAt < Date.now()) {
-      this.sessions.delete(sessionKey);
+    if (!sessionKey) throw new BadRequestException('Session expired or invalid');
+
+    let payload: GoogleSessionPayload & { customerId: string | null };
+    try {
+      payload = await this.jwt.verifyAsync(sessionKey, { secret: this.sessionSecret });
+    } catch {
       throw new BadRequestException('Session expired or invalid');
     }
 
-    this.sessions.delete(sessionKey);
-
-    if (session.type === 'login' && session.customerId) {
-      const customer = await this.prisma.customer.findUniqueOrThrow({
-        where: { id: session.customerId },
+    if (payload.customerId) {
+      const customer = await this.prisma.customer.findUnique({
+        where: { id: payload.customerId },
       });
+      if (!customer) throw new BadRequestException('Account not found');
 
       const pair = await this.tokens.issuePair(
         {
@@ -96,14 +107,13 @@ export class GoogleOAuthService {
       return { type: 'login' as const, ...pair, customer: safeCustomer };
     }
 
-    // New user — return profile data for registration form
     return {
       type: 'register' as const,
-      googleId: session.profile.googleId,
-      email: session.profile.email,
-      firstName: session.profile.firstName,
-      lastName: session.profile.lastName,
-      avatarUrl: session.profile.avatarUrl ?? null,
+      googleId: payload.googleId,
+      email: payload.email,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      avatarUrl: payload.avatarUrl ?? null,
     };
   }
 
